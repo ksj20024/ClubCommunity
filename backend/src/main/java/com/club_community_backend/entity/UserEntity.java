@@ -63,4 +63,12 @@ public class UserEntity extends BaseTimeEntity {
         this.realName = dto.getRealName();
         this.phoneNumber = dto.getPhoneNumber();
     }
+
+    public void updateRealName(String realName) {
+        this.realName = realName;
+    }
+
+    public void updatePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
 }

@@ -31,4 +31,12 @@ public class ClubMemberEntity extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ClubJoinStatusRole joinStatus;
+
+    public void updateJoinStatus(ClubJoinStatusRole newStatus) {
+        this.joinStatus = newStatus;
+    }
+
+    public void updateRole(ClubRole clubRole) {
+        this.clubRole = clubRole;
+    }
 }

@@ -6,20 +6,16 @@ import com.club_community_backend.constant.ClubRole;
 import com.club_community_backend.constant.ClubTypeRole;
 import com.club_community_backend.dto.ClubDto;
 import com.club_community_backend.dto.ClubMemberDto;
-import com.club_community_backend.entity.ApplicationDocEntity;
-import com.club_community_backend.entity.ApplicationFormEntity;
-import com.club_community_backend.entity.ClubEntity;
-import com.club_community_backend.entity.UserEntity;
-import com.club_community_backend.repository.ApplicationDocRepository;
-import com.club_community_backend.repository.ApplicationFormRepository;
-import com.club_community_backend.repository.ClubRepository;
-import com.club_community_backend.repository.UserRepository;
+import com.club_community_backend.entity.*;
+import com.club_community_backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +25,7 @@ public class ClubManagerService {
     private final ClubMemberService clubMemberService;
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
+    private final ClubMemberRepository clubMemberRepository;
     private final ApplicationDocRepository applicationDocRepository;
     private final ApplicationDocService applicationDocService;
     private final ApplicationFormRepository applicationFormRepository;
@@ -54,29 +51,26 @@ public class ClubManagerService {
         return savedClub.getId();
     }
 
+    // 입부 원서 양식 및 템플릿 파일 설정
     @Transactional
     public void setupApplicationForm(Long clubId, Long userId, byte[] fileContent, String originalFileName, String settingsJson) {
-        // 1. 동아리 존재 확인
         ClubEntity club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 동아리입니다."));
 
-        // 2. 권한 확인: 요청한 유저가 이 동아리의 회장(CLUBPRESIDENT)인지 확인
-        // ClubMemberService에 해당 로직이 있다고 가정하거나 여기서 직접 체크합니다.
+        // 회장 권한 확인
         boolean isPresident = clubMemberService.isUserHasRole(club, userId, ClubRole.CLUBPRESIDENT);
         if (!isPresident) {
             throw new SecurityException("동아리 가입 양식 설정 권한이 없습니다.");
         }
 
-        // 3. 템플릿 파일 업로드 (FileStorageService 활용)
-        // 파일명 중복 방지를 위해 UUID나 타임스탬프를 섞는 것이 좋습니다.
+        // 확장자 추출 및 고유 파일명 설계
         String extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-        String fileName = String.format("templates/%d_template_%d%s",
-                clubId, System.currentTimeMillis(), extension);
+        String fileName = String.format("templates/%d_template_%d%s", clubId, System.currentTimeMillis(), extension);
 
-        // 로컬 혹은 S3로 자동 업로드 후 URL 반환
+        // 스토리지 업로드 연동
         String templateFileUrl = applicationDocService.uploadTemplate(fileName, fileContent);
 
-        // 4. 가입 양식 엔티티 생성 및 저장
+        // 엔티티 빌드 및 영속화
         ApplicationFormEntity form = ApplicationFormEntity.builder()
                 .club(club)
                 .templateDocUrl(templateFileUrl)
@@ -86,7 +80,7 @@ public class ClubManagerService {
         applicationFormRepository.save(form);
     }
 
-    // 일반 유저 가입
+    // 일반 유저 가입 신청 및 가입 원서 문서 자동 생성
     @Transactional
     public void applyToClub(Long clubId, Long userId, ClubMemberDto.JoinRequest joinDto) {
         ClubEntity club = clubRepository.findById(clubId)
@@ -99,59 +93,100 @@ public class ClubManagerService {
             throw new IllegalStateException("이미 가입되어 있거나 승인 대기 중입니다.");
         }
 
-        // 2. 가입 조건 및 이메일 도메인 대조 로직
+        // 2. 가입 조건 분기 검증
         validateJoinPolicy(club, joinDto);
 
-        // 3. 상태 결정 (APPROVAL이 있으면 PENDING, 아니면 APPROVED)
+        // 3. 결격 승인제 여부에 따른 초기 상태 결정
         ClubJoinStatusRole status = club.getJoinType().contains(ClubJoinMethodRole.APPROVAL)
                 ? ClubJoinStatusRole.PENDING : ClubJoinStatusRole.APPROVED;
 
-        // 4. 멤버 저장
+        // 4. 동아리 멤버십 관계 저장
         String studentNo = (club.getClubType() == ClubTypeRole.SCHOOL) ? joinDto.getStudentNo() : null;
         clubMemberService.joinClub(club, user, ClubRole.MEMBER, status, studentNo);
 
+        // 5. 자동 문서 생성 옵션 켜져있을 시 동작
         if (club.getUseAutoCreateApplicationDoc()) {
             ApplicationFormEntity form = applicationFormRepository.findByClub(club)
                     .orElseThrow(() -> new IllegalStateException("가입 양식 설정이 완료되지 않았습니다."));
 
-            // joinDto나 별도 전달받은 답변 리스트를 Map으로 변환
             Map<String, Object> answers = extractAnswers(joinDto);
-
             String docUrl = applicationDocService.generateAndUploadDoc(user, club, form, answers);
 
-            // 6. 생성된 문서 엔티티 저장
+            // AttributeConverter 덕분에 Map을 그대로 밀어 넣어도 DB에는 JSON 텍스트로 보관됨
             applicationDocRepository.save(ApplicationDocEntity.builder()
                     .user(user)
                     .club(club)
-                    .formRawData(answers) // JSON 형태 답변 원본
-                    .docPdfUrl(docUrl) // 실제로는 docx 경로
+                    .formRawData(answers)
+                    .docPdfUrl(docUrl)
                     .build());
         }
     }
 
-    private Map<String, Object> extractAnswers(ClubMemberDto.JoinRequest joinDto) {
-        // 1. 유저가 보낸 답변 Map (e.g., {"reason": "열심히 하겠습니다", "studentNum": "20240101" ...})
-        Map<String, Object> answers = joinDto.getAnswers();
+    // 승인 대기 중인 신청자 전체 목록 조회
+    @Transactional(readOnly = true)
+    public List<ClubMemberDto.PendingResponse> getPendingApplicants(Long clubId, Long managerId) {
+        ClubEntity club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 동아리입니다."));
 
-        if (answers == null || answers.isEmpty()) {
-            throw new IllegalArgumentException("가입 질문에 대한 답변이 누락되었습니다.");
+        if (!clubMemberService.isUserAdminOrPresident(club, managerId)) {
+            throw new SecurityException("신청자 명단을 조회할 권한이 없습니다.");
         }
 
-        // 2. 시스템에서 자동으로 넣어줄 공통 변수들 (선택 사항)
-        // 템플릿에 {{applyDate}}라고 적어두면 오늘 날짜가 찍힙니다.
-        answers.put("applyDate", java.time.LocalDate.now().toString());
+        List<ClubMemberEntity> pendingMembers = clubMemberRepository.findPendingMembersWithDoc(clubId);
 
+        return pendingMembers.stream().map(member -> {
+            ApplicationDocEntity doc = applicationDocRepository.findByClubAndUser(club, member.getUser())
+                    .orElse(null);
 
-        return answers;
+            return ClubMemberDto.PendingResponse.builder()
+                    .userId(member.getUser().getId())
+                    .userName(member.getUser().getRealName())
+                    .studentNo(member.getStudentNo())
+                    .email(member.getUser().getEmail())
+                    .appliedAt(member.getCreatedAt())
+                    .formAnswers(doc != null ? doc.getFormRawData() : null)
+                    .applicationDocId(doc != null ? doc.getId() : null)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    // 신청자 승인 혹은 반려 상태 업데이트
+    @Transactional
+    public void updateApplicantStatus(Long clubId, Long applicantId, Long managerId, ClubJoinStatusRole newStatus) {
+        ClubEntity club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 동아리입니다."));
+
+        if (!clubMemberService.isUserAdminOrPresident(club, managerId)) {
+            throw new SecurityException("권한이 없습니다.");
+        }
+
+        ClubMemberEntity applicant = clubMemberRepository.findByClubAndUser_Id(club, applicantId)
+                .orElseThrow(() -> new IllegalArgumentException("신청 정보를 찾을 수 없습니다."));
+
+        if (applicant.getJoinStatus() != ClubJoinStatusRole.PENDING) {
+            throw new IllegalStateException("이미 처리된 신청 건입니다.");
+        }
+
+        applicant.updateJoinStatus(newStatus);
+
+        if (newStatus == ClubJoinStatusRole.APPROVED) {
+            applicant.updateRole(ClubRole.MEMBER);
+        }
+    }
+
+    // 특정 개별 가입 신청 원서의 답변 내용 조회 (화면 가공용)
+    @Transactional(readOnly = true)
+    public Map<String, Object> getDocDetail(Long docId) {
+        ApplicationDocEntity doc = applicationDocRepository.findById(docId)
+                .orElseThrow(() -> new IllegalArgumentException("문서를 찾을 수 없습니다."));
+        return doc.getFormRawData();
     }
 
     private void validateJoinPolicy(ClubEntity club, ClubMemberDto.JoinRequest dto) {
         EnumSet<ClubJoinMethodRole> joinTypes = club.getJoinType();
 
-        // FREE 방식이면 검증 통과
-        if (club.getJoinType().contains(ClubJoinMethodRole.FREE)) return;
+        if (joinTypes.contains(ClubJoinMethodRole.FREE)) return;
 
-        // 이메일 도메인 체크: EMAIL 방식이 포함되어 있다면 반드시 대조
         if (joinTypes.contains(ClubJoinMethodRole.EMAIL)) {
             if (dto.getEmail() == null || dto.getEmail().isBlank()) {
                 throw new IllegalArgumentException("이메일 입력이 필요합니다.");
@@ -161,7 +196,6 @@ public class ClubManagerService {
             }
         }
 
-        // CODE 방식: 동아리 비밀번호 대조
         if (joinTypes.contains(ClubJoinMethodRole.CODE)) {
             if (dto.getClubPassword() == null || dto.getClubPassword().isBlank()) {
                 throw new IllegalArgumentException("가입 코드를 입력해주세요.");
@@ -170,5 +204,14 @@ public class ClubManagerService {
                 throw new IllegalArgumentException("가입 코드가 일치하지 않습니다.");
             }
         }
+    }
+
+    private Map<String, Object> extractAnswers(ClubMemberDto.JoinRequest joinDto) {
+        Map<String, Object> answers = joinDto.getAnswers();
+        if (answers == null || answers.isEmpty()) {
+            throw new IllegalArgumentException("가입 질문에 대한 답변이 누락되었습니다.");
+        }
+        answers.put("applyDate", java.time.LocalDate.now().toString());
+        return answers;
     }
 }
