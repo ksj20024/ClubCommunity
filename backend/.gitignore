@@ -10,8 +10,8 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-ApplicationDocs
-storage
+storage/ApplicationDocs/templates/**
+storage/ApplicationDocs/processed/**
 
 ### STS ###
 .apt_generated
