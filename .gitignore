@@ -1,0 +1,8 @@
+# IDE & Windows settings
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
