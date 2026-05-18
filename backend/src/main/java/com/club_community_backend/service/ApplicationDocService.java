@@ -42,7 +42,7 @@ public class ApplicationDocService {
             template.write(out);
 
             // 생성될 유저별 가입 신청서 파일명 설계
-            String fileName = String.format("%d_%d_%d.docx",
+            String fileName = String.format("generated/%d_%d_%d.docx",
                     club.getId(), user.getId(), System.currentTimeMillis());
 
             // 파일 저장소에 물리적 저장 실행

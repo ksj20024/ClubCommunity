@@ -15,7 +15,7 @@ import java.nio.file.Files;
 public class LocalStorageService implements FileStorageService {
 
     private final ResourceLoader resourceLoader;
-    private final String rootPath = System.getProperty("user.dir") + "/storage/ApplicationDocs/";
+    private final String rootPath = System.getProperty("user.dir") + "/storage/ApplicationDocs/templates/";
 
     @Override
     public String uploadFile(String fileName, byte[] content) {
