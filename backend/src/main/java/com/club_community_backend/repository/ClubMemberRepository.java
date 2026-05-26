@@ -18,12 +18,27 @@ public interface ClubMemberRepository extends JpaRepository<ClubMemberEntity, Lo
     // 특정 멤버가 가입한 모든 동아리 찾기
     List<ClubMemberEntity> findByUser(UserEntity user);
 
+    Optional<ClubMemberEntity> findByClubIdAndUserId(Long clubId, Long userId);
+
     boolean existsByClubAndUser_IdAndClubRoleAndJoinStatus(
             ClubEntity club,
             Long userId,
             ClubRole role,
             ClubJoinStatusRole joinStatus
     );
+
+    // 🌟 [성능 최적화] FETCH JOIN을 통해 UserEntity를 한 번에 묶어서 긁어옵니다.
+    @Query("SELECT cm FROM ClubMemberEntity cm " +
+            "JOIN FETCH cm.user " +
+            "WHERE cm.club.id = :clubId AND cm.joinStatus = :joinStatus " +
+            "ORDER BY cm.clubRole DESC, cm.user.realName ASC") // 회장/운영진 우선 정렬 후 이름순 정렬
+    List<ClubMemberEntity> findApprovedMembersWithUser(
+            @Param("clubId") Long clubId,
+            @Param("joinStatus") ClubJoinStatusRole joinStatus
+    );
+
+    // 유저가 해당 동아리의 정식 멤버인지 확인하는 방어 로직용
+    boolean existsByClubIdAndUserIdAndJoinStatus(Long clubId, Long userId, ClubJoinStatusRole joinStatus);
 
     // 역할에 상관없이 특정 동아리의 멤버인지(승인된 상태인지) 체크할 때
     boolean existsByClubAndUser_IdAndJoinStatus(
@@ -40,4 +55,6 @@ public interface ClubMemberRepository extends JpaRepository<ClubMemberEntity, Lo
     List<ClubMemberEntity> findPendingMembersWithDoc(@Param("clubId") Long clubId);
 
     Optional<ClubMemberEntity> findByClubAndUser_Id(ClubEntity club, Long applicantId);
+
+    List<ClubMemberEntity> findByUserAndJoinStatus(UserEntity user, ClubJoinStatusRole clubJoinStatusRole);
 }
