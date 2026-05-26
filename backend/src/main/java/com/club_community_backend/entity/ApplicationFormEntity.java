@@ -23,4 +23,12 @@ public class ApplicationFormEntity extends BaseTimeEntity {
     // 예: [{"question": "이름", "key": "userName"}, {"question": "지원동기", "key": "reason"}]
     @Column(columnDefinition = "TEXT")
     private String formSettings;
+
+    public void updateTemplateDocUrl(String templateFileUrl) {
+        this.templateDocUrl = templateFileUrl;
+    }
+
+    public void updateSettings(String settingsJson) {
+        this.formSettings = settingsJson;
+    }
 }

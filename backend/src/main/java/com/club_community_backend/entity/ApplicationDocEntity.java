@@ -29,6 +29,14 @@ public class ApplicationDocEntity extends BaseTimeEntity {
     @Column(columnDefinition = "TEXT", nullable = false)
     private Map<String, Object> formRawData;
 
-    @Column(nullable = false)
+    @Column()
     private String docPdfUrl;
+
+    public void updateFormRawData(Map<String, Object> formRawData) {
+        this.formRawData = formRawData;
+    }
+
+    public void updateDocPdfUrl(String docPdfUrl) {
+        this.docPdfUrl = docPdfUrl;
+    }
 }
