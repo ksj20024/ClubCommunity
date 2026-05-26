@@ -23,6 +23,7 @@ public class ClubMemberEntity extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "club_id", nullable = false)
     private ClubEntity club;
+    private String email;
     private String studentNo;
     @NotNull
     @Enumerated(EnumType.STRING)
