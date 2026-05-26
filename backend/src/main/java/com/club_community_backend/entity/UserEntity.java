@@ -1,7 +1,6 @@
 package com.club_community_backend.entity;
 
 import com.club_community_backend.constant.UserRole;
-import com.club_community_backend.dto.UserDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SoftDelete;
@@ -52,17 +51,6 @@ public class UserEntity extends BaseTimeEntity {
     private Boolean isDelete = false;
     //private boolean isEmailVerified = false;
 
-    public void updateUser(UserDto.UpdateRequest dto) {
-        this.email = dto.getEmail();
-
-        // 비밀번호가 입력된 경우에만 수정 (수정 안 할 때 빈 값으로 올 수 있음)
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            this.password = dto.getPassword();
-        }
-
-        this.realName = dto.getRealName();
-        this.phoneNumber = dto.getPhoneNumber();
-    }
 
     public void updateRealName(String realName) {
         this.realName = realName;
@@ -70,5 +58,20 @@ public class UserEntity extends BaseTimeEntity {
 
     public void updatePhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
+    }
+
+    public void updateGeneral(String realName, String phoneNumber) {
+        updateRealName(realName);
+        updatePhoneNumber(phoneNumber);
+    }
+
+    public void updatePassword(String newPassword) {
+        // 💡 팁: 지금은 평문(Plain Text)으로 저장되지만,
+        // 추후 Spring Security가 도입되면 외부에서 암호화된(BCrypt) 비밀번호를 받아 그대로 매핑하게 됩니다.
+        this.password = newPassword;
+    }
+
+    public void updateEmail(String email) {
+        this.email = email;
     }
 }
