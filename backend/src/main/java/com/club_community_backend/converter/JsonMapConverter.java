@@ -33,7 +33,8 @@ public class JsonMapConverter implements AttributeConverter<Map<String, Object>,
 
         try {
             // TypeReference를 사용하여 정확한 제네릭 타입을 명시
-            return objectMapper.readValue(dbData, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(dbData, new TypeReference<>() {
+            });
         } catch (JsonProcessingException e) {
             throw new RuntimeException("JSON reading error", e);
         }
