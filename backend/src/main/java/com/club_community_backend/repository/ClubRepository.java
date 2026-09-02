@@ -13,4 +13,5 @@ public interface ClubRepository extends JpaRepository<ClubEntity, Long> {
     Optional<ClubEntity> findByClubName(String clubName);
     // 동아리 이름 중복 확인
     boolean existsByClubName(String clubName);
+    List<ClubEntity> findByIsDeleteFalseOrderByIdDesc();
 }
