@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -100,5 +103,21 @@ public class ClubService {
 
         // 데이터 업데이트
         club.updateClub(dto);
+    }
+
+    // 전체 동아리 목록 조회 (삭제된 동아리 제외)
+    @Transactional(readOnly = true)
+    public List<ClubDto.ListResponse> getAllClubs() {
+        List<ClubEntity> clubs = clubRepository.findByIsDeleteFalseOrderByIdDesc();
+
+        return clubs.stream()
+                .map(club -> ClubDto.ListResponse.builder()
+                        .id(club.getId())
+                        .clubName(club.getClubName())
+                        .schoolName(club.getSchoolName())
+                        .clubType(club.getClubType())
+                        .clubJoinMethod(club.getJoinType())
+                        .build())
+                .collect(Collectors.toList());
     }
 }
