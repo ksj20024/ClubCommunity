@@ -15,27 +15,54 @@ public class ClubMemberDto {
         private Map<String, Object> answers;
     }
 
+    @Getter @Setter @Builder
+    @AllArgsConstructor @NoArgsConstructor
+    public static class UpdateTelegramRequest {
+        private String telegramChatId;
+        private boolean isAlertEnabled;
+    }
+
     // 동아리 내 유저 정보 통합 만능 DTO
     @Getter @Builder
     public static class UserContextResponse {
-        // 1. 현재 바라보고 있는 동아리 정보
         private ClubDto.UserJoinedResponse clubInfo;
 
-        // 2. 유저 프로필 정보
-        private Long uid;          // 사이트 회원 PK
-        private Long clubMemberId;    // 동아리 멤버십 PK (비회원이면 null)
-        private String realName;      // 👑 UserEntity 통합 관리 (실시간 연동)
-        private String phoneNumber;   // 👑 UserEntity 통합 관리 (실시간 연동)
-        private String email;         // ✉️ ClubMemberEntity 고유 관리 (동아리별 독립 이메일)
+        private Long uid;
+        private Long clubMemberId;
+        private String realName;
+        private String phoneNumber;
+        private String email;
 
-        // 3. 동아리별 고유 정보 및 권한
         private String studentNo;
-        private String clubRole;        // CLUBPRESIDENT, CLUBADMIN, MEMBER, NONE
-        private String joinStatus;      // APPROVED, PENDING, REJECTED, NONE
-        private boolean isManager;      // 운영진 여부
+        private String clubRole;
+        private String joinStatus;
+        private boolean isManager;
 
-        // 4. 서류 상세 데이터 (상세조회 플래그 가동 시에만 로드)
+        // 현재 이 사람의 텔레그램 연동 ID (null이면 연동 안 됨 상태로 프론트 처리)
+        private String telegramChatId;
+        // 알림 수신 On/Off 스위치 상태
+        private boolean isAlertEnabled;
+
         private SubmittedDocResponse submittedDoc;
+        private String formSettings;
+    }
+
+    // 1. 학번 및 이메일 수정 요청 DTO
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateBasicInfoRequest {
+        private String studentNo;
+        private String email;
+    }
+
+    // 2. 가입 신청서 폼 답변 수정 요청 DTO
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateFormAnswersRequest {
+        // 기존 UserContextResponse의 submittedDoc 구조에 맞춘 타입 (Map 또는 String 등 기존 필드 타입에 맞게 맞춰주세요)
+        private Map<String, Object> formAnswers;
     }
 
     @Getter @Builder
@@ -66,4 +93,5 @@ public class ClubMemberDto {
         private String clubRole;      // CLUBPRESIDENT, CLUBADMIN, MEMBER
         private LocalDateTime joinedAt; // 가입 승인 일자 (BaseTimeEntity의 createdAt 활용)
     }
+
 }
