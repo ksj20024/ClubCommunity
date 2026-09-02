@@ -12,6 +12,10 @@ build/
 !**/src/test/**/build/
 storage/ApplicationDocs/templates/*
 storage/ApplicationDocs/generated/*
+storage/generated/*
+storage/posts/*
+!storage/posts/.gitkeep
+!storage/generated/.gitkeep
 !storage/ApplicationDocs/templates/.gitkeep
 !storage/ApplicationDocs/generated/.gitkeep
 
