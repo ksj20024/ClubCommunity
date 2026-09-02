@@ -33,11 +33,21 @@ public class SecurityConfig {
                 // 2. CSRF 비활성화 (REST API 환경이므로 잠시 꺼둡니다)
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 3. API 접근 권한 제어
+                // 3. API 접근 권한 제어 (정적 리소스 프리패스 추가)
                 .authorizeHttpRequests(auth -> auth
-                        // 회원가입, 로그인, 이메일 인증 발송은 로그인 없이 접근 허용
+                        // ⭕ [순서 1 - 최우선 허용 경로] 회원가입, 로그인, 이메일 인증 발송
                         .requestMatchers("/api/users/join", "/api/users/login", "/api/users/email-verification/send").permitAll()
-                        // 그 외 모든 API 요청은 인증(로그인) 필요
+
+                        // 🎯 [추가] 업로드된 이미지 조회 경로는 세션 인증 없이 누구나 접근할 수 있도록 허용 (401 에러 해결)
+                        .requestMatchers("/api/storage/**", "/storage/**").permitAll()
+
+                        // ⭕ [순서 2 - 에이전트 허용 경로] 파이썬 에이전트 내부 경로는 인증(세션) 없이 통과 (컨트롤러 헤더에서 2차 검증)
+                        .requestMatchers("/api/internal/agent/**").permitAll()
+
+                        // ⭕ [순서 3 - 조건부 인증 경로] 동아리 관련 모든 API는 로그인한 유저만 허용
+                        .requestMatchers("/api/clubs/**").authenticated()
+
+                        // ⭕ [순서 4 - 최종 관문] 그 외 나머지 모든 API 요청은 무조건 인증(로그인) 필요! (맨 마지막에 딱 한번만 배치)
                         .anyRequest().authenticated()
                 )
 
@@ -57,28 +67,26 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 비밀번호 암호화를 위한 Bean 등록 (추후 로그인/회원가입 시 유저 비밀번호를 가공할 때 사용)
+    // 비밀번호 암호화를 위한 Bean 등록
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // 시큐리티 전용 CORS 설정 (기존 WebConfig 설정을 대체함)
+    // 시큐리티 전용 CORS 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:55555"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // 👈 쿠키/세션 연동을 위해 필수
+        configuration.setAllowCredentials(true); // 쿠키/세션 연동을 위해 필수
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-    // SecurityConfig.java 내부에 추가
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
