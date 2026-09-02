@@ -33,6 +33,11 @@ public class ClubMemberEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private ClubJoinStatusRole joinStatus;
 
+    public void updateBasicInfo(String studentNo, String email) {
+        if (studentNo != null && !studentNo.isBlank()) this.studentNo = studentNo;
+        if (email != null && !email.isBlank()) this.email = email;
+    }
+
     public void updateJoinStatus(ClubJoinStatusRole newStatus) {
         this.joinStatus = newStatus;
     }
