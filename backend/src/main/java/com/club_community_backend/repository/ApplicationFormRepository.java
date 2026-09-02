@@ -9,4 +9,5 @@ import java.util.Optional;
 
 public interface ApplicationFormRepository extends JpaRepository<ApplicationFormEntity, Long> {
     Optional<ApplicationFormEntity> findByClub(ClubEntity club);
+    Optional<ApplicationFormEntity> findByClubId(Long clubId);
 }
