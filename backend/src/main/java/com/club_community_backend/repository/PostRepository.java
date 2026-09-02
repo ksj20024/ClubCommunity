@@ -36,10 +36,10 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
      * 📌 [기존 유지] 대시보드 전용 상위 3개 최신글 슬라이싱 조회 (N+1 최적화 적용)
      */
     @Query("""
-        SELECT p 
-        FROM PostEntity p 
-        JOIN FETCH p.user 
-        WHERE p.club.id = :clubId AND p.boardType = :boardType 
+        SELECT p
+        FROM PostEntity p
+        JOIN FETCH p.user
+        WHERE p.club.id = :clubId AND p.boardType = :boardType
         ORDER BY p.createdAt DESC
     """)
     List<PostEntity> findTopPostsByBoardType(
